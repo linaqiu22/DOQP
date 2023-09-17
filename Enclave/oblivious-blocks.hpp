@@ -159,7 +159,6 @@ class CompactNet {
 
     bool workSpaceCompact(int tableID, int readBinID, uint absStart, uint relativeStart, int &lastBlockStatus, function<bool(vector<int>&)> func, uint wsDataSize, int &rcounter, bool inplace) {
         bytes empty_r(textSizeVec[tableID], '\0');
-        // bytes empty_r(sizeof(int), '\0');
         auto in = workSpace0;
         if (wsDataSize > 2*compactBlockSize) {
             printf("workSpace has invalid number of data\n");
@@ -180,7 +179,6 @@ class CompactNet {
                 }
                 vector<int> recordInts = deconstructIntegers(tableID, recordBytes);
                 /* if (!inplace) {
-                    //! this might be removable
                     uchar bin_id_array[sizeof(int)];
                     copy(recordBytes.begin()+textSizeVec[tableID]-sizeof(int), recordBytes.begin()+textSizeVec[tableID], bin_id_array);
                     int bin_id = vector<int>((int*)bin_id_array, (int*)bin_id_array+1)[0];
@@ -188,7 +186,6 @@ class CompactNet {
                 } */
                 
                 int distance = 0; 
-                // if (((empty_r == recordBytes || func(recordInts))&&!flipped) || (!(empty_r == recordBytes || func(recordInts))&&flipped)) {
                 if (((empty_r == recordBytes || func(recordInts))&&!flipped)) {
                     distance = i - relativeStart - counter;
                     counter++;
@@ -220,7 +217,6 @@ class CompactNet {
                 vector<int> recordInts = deconstructIntegers(tableID, recordBytes);
 
                 /* if (!inplace) {
-                    //! this might be removable but still questionable
                     uchar bin_id_array[sizeof(int)];
                     copy(recordBytes.begin()+textSizeVec[tableID]-sizeof(int), recordBytes.begin()+textSizeVec[tableID], bin_id_array);
                     int bin_id = vector<int>((int*)bin_id_array, (int*)bin_id_array+1)[0];
@@ -257,8 +253,6 @@ class CompactNet {
                 counter = flippedCounter;
             } 
         }
-        // printf("counter %d flippedcounter %d flipped %d, nempty %d\n", counter, flippedCounter, (int)flipped, nempty);
-        //* original j = 0
         auto dest_in = workSpace0;
         for (uint i = 0; i < log2(wsDataSize); i++) {
             for (uint j = pow(2, i); j < wsDataSize; j++) {
@@ -273,7 +267,6 @@ class CompactNet {
                 auto record = in->read(idx);
                 int distance = distArray[j];
                 int offset = (distance % (int)pow(2, i+1)); // either 0 or 2^i int dest = j - pow(2, i) < 0 ? 0 : j - pow(2, i);
-                // int dest = j - offset;
                 int dest = j - pow(2, i);
                 int dest_idx;
                 if (dest < workSpace0->size) {
@@ -320,14 +313,6 @@ class CompactNet {
         }
         workSpace0 = workSpace1;
         workSpace1 = new TraceMem<T>(0);
-
-        // workSpace0->erase(writeDataSize);
-        // int addSize = workSpace1->size;
-        // int orgSize = workSpace0->size;
-        // workSpace0->resize(orgSize+addSize);
-        // for (int j = orgSize; j < orgSize+addSize; j++) {
-        //     workSpace0->write(j, workSpace1->read(j-orgSize));
-        // }
         return flipped;
     }
 
@@ -506,8 +491,6 @@ void compactMetaVector(vector<T> *in, vector<T> *out1, vector<T> *out2, function
         out2->insert(out2->end(), in->begin()+counter, in->end());
     }
 }
-
-// void compactRecord(int tableID, int dim, int pos, TraceMem<tbytes> *in, TraceMem<tbytes> *&out1, TraceMem<tbytes> *&out2, vector<int> &keyHelperList, function<bool(int&)> func);
 
 template <typename T>
 class ObliSortingNet { 

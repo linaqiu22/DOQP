@@ -52,7 +52,6 @@ map<uint, shared_ptr<AbsStorage>> untrustedBinStorage;
 vector<vector<int>> test_data, binned_data;
 int selectIdx = 0;
 vector<pair<int, int>> test_queries;
-// string logfile_name = "log/log-createPDS-time-storage.txt";
 float avg_res_blowup = 0;
 vector<int> ansBins;
 int ansTable = 0;
@@ -301,8 +300,6 @@ void expand_table_OCALL(int tableID, uint noiseSum, char *noise, uint nsize) {
     uint iter = 0;
     auto noise_iter = noise;
     bytes dummyRecord;
-    // bytes record(untrustedTableStorage[tableID][0]->getBlockSize(), '\0');
-    // record.resize(untrustedTableStorage[tableID][0]->getBlockSize());
     while (iter < noiseSum) {
         dummyRecord.clear();
         dummyRecord.insert(dummyRecord.end(), noise_iter, noise_iter+EDATA_BLOCKSIZE);
@@ -311,7 +308,6 @@ void expand_table_OCALL(int tableID, uint noiseSum, char *noise, uint nsize) {
         untrustedTableStorage[tableID][0]->set(address, dummyRecord);
         iter++;
     }
-    // cout << "expanded table size: " << untrustedTableStorage[tableID][0]->nometaSize() / untrustedTableStorage[tableID][0]->getBlockSize() << endl;
 }
 
 void copy_bin_OCALL(int tableID, int readBinID, int writeBinID, int startPos, int endPos) {
@@ -436,10 +432,6 @@ void write_index_OCALL(int structureID, char *s_idxBinStart, uint size1, char *s
         cout << filename << " not open" << endl;
         return;
     }
-    // vector<number> tmp1((number*)s_idxBinStart, (number*)s_idxBinStart+size1/sizeof(number));
-    // vector<number> tmp2((number*)s_idxBinEnd, (number*)s_idxBinEnd+size2/sizeof(number));
-    // uint nLeaves1 = size1 / (2*sizeof(number));
-    // uint nLeaves2 = size2 / (2*sizeof(number));
     outfile << size1 << " " << size2 << endl;
     outfile.write(s_idxBinStart, size1);
     outfile.write(s_idxBinEnd, size2);
@@ -612,7 +604,7 @@ void writeBinnedData(int tableID, string source) {
     outfile.close();
 }
 
-void loadBinnedData(int tableID, string source, bool restore_join_meta, int join_idx) {
+/* void loadBinnedData(int tableID, string source, bool restore_join_meta, int join_idx) {
     untrustedTableStorage.resize(tableID+1);
     // string filename = "table" + to_string(tableID+1) + "_encrypted_binned_data.txt";
     string filename = "binned-data/" + source + "_binned_data.txt";
@@ -649,7 +641,7 @@ void loadBinnedData(int tableID, string source, bool restore_join_meta, int join
         getline(infile, eol);
     }
     infile.close();
-}
+} */
 
 void loadIndex(int structureID, char *&s_idxBinStart, char *&s_idxBinEnd, uint &size1, uint &size2, string source) {
     string filename = "binned-data/" + source + "_index.txt";
@@ -770,7 +762,6 @@ void replyClient(SSL *ssl) {
         // auto binStorage = untrustedTableStorage[ansTable][ansBins[i]];
         auto binStorage = untrustedBinStorage[ansBins[i]];
         int dataSize = (int)(binStorage->size()/binStorage->getBlockSize()) - 1;
-        // printf("ansBins[%d]=%d, data size %d\n", i, ansBins[i], dataSize);
         number meta = binStorage->meta()+1;
         char reply[binStorage->getBlockSize()];
         for (int j = meta; j < meta+dataSize; j++) {
@@ -781,7 +772,6 @@ void replyClient(SSL *ssl) {
         }
         reVolume += dataSize;
     }
-    // printf("%d records returned to client\n", reVolume);
 }
 
 
@@ -790,14 +780,13 @@ int main(int argc, char *argv[]) {
     (void)(argc);
     (void)(argv);
     /* Main code */
-    // The input file has two columns, the first one is join attribute, the second one is data attribute. Both attributes have type integer
+    // The input file has two columns, the first one is join attribute, the second one is data attribute. Both attributes are integers.
     // The first row in the input file has two numbers. Indicate the size of table 1 and table 2 respectively
     //* INT_MAX is a reserved flag for dummy entries/noise
-    //TODO 
-    // if (!(argc == 7 || argc == 5)) {
-    if (!(argc == 8 || argc == 7 || argc == 9)) {
-        printf("Wrong number of input parameters: %s\n select tables/bins DATA_FILE QUERY_FILE HTree/DO constant\n\
-                    join tables/bins DATA_FILE1 DATA_FILE2 HTree/DO/CZSC21 constant pf-join/general\n", argv[0]);
+    if (!(argc == 7 || argc == 8 || argc == 9)) {
+        printf("Wrong number of input parameters: %s\n select tables DATA_FILE QUERY_FILE HTree/DO constant\n
+                    join tables DATA_FILE1 DATA_FILE2 HTree/DO/CZSC21 constant pf-join/general\n
+                    select-join table DATA_FILE1 DATA_FILE2 HTree constant pf-join/general QUERY_FILE\n", argv[0]);
         exit(0);
     }
     query_type op;
@@ -806,68 +795,61 @@ int main(int argc, char *argv[]) {
     join_type jt;
     time_t start_time, end_time;
     double usedtime;
-    bool pfJoinFlag = false;
+    bool pfJoinFlag = false; // If this is foreign-key join
     if (strcmp(argv[1], "join") == 0 || strcmp(argv[1], "select-join") == 0) {
         if (strcmp(argv[1], "join") == 0) {
             op = Join;
             if (argc != 8) {
-                printf("Usage: %s join tables/bins DATA_FILE1 DATA_FILE2 HTree/DO/CZSC21 constant pf-join/general\n", argv[0]);
+                printf("Usage: %s join tables DATA_FILE1 DATA_FILE2 HTree/DO/CZSC21 constant pf-join/general\n", argv[0]);
                 exit(0);
             }
         }
         if (strcmp(argv[1], "select-join") == 0) {
             op = SelectJoin;
             if (argc != 9) {
-                printf("Usage: %s select-join tables/bins DATA_FILE1 DATA_FILE2 HTree constant pf-join/general QUERY_FILE\n", argv[0]);
+                printf("Usage: %s select-join tables DATA_FILE1 DATA_FILE2 HTree constant pf-join/general QUERY_FILE\n", argv[0]);
                 exit(0);
             }
             queryPath = argv[argc-1];
             loadQueries(queryPath);
         }
-        untrustedTableStorage.resize(2);
+        untrustedTableStorage.resize(2); // storage for the two join tables
         if (strcmp(argv[7], "pf-join") == 0) {
             pfJoinFlag = true;
         }
     }
     if (strcmp(argv[1], "select") == 0) {
         if (argc != 7) {
-            printf("Usage: %s select tables/bins DATA_FILE QUERY_FILE HTree/DO constant\n", argv[0]);
+            printf("Usage: %s select tables DATA_FILE QUERY_FILE HTree/DO constant\n", argv[0]);
             exit(0);
         }
         op = Select;
         untrustedTableStorage.resize(1);
         queryPath = argv[4];
-        // loadQueries("query/query_1d_100000_pert=20.txt");
         loadQueries(queryPath);
     }
     if (strcmp(argv[2], "tables") == 0) {
-        ds = Tables;
+        ds = Tables; // data source is raw tables
     }
-    if (strcmp(argv[2], "bins") == 0) {
-        ds = Bins;
-    }
+    // if (strcmp(argv[2], "bins") == 0) {
+    //     ds = Bins; // data source is bins of PDS, used to skip PDS build time in experiments
+    // }
     if (strcmp(argv[5], "CZSC21") == 0) {
-        jt = CZSC21;
-        if (strcmp(argv[2], "bins") == 0) {
-            printf("CZSC21 join does not support bins\n");
-            exit(0);
-        }
+        jt = CZSC21; // No PDS, our implementation of CZSC21
+        // if (strcmp(argv[2], "bins") == 0) {
+        //     printf("CZSC21 join does not support bins\n");
+        //     exit(0);
+        // }
     } else if (strcmp(argv[5], "DO") == 0) {
-        jt = DO;
+        jt = DO; // PDS is PrivTree-based
     } else if (strcmp(argv[5], "HTree") == 0) {
-        jt = HTreeDO;
+        jt = HTreeDO; // PDS is HTree-based
     } else {
         printf("Input error: invalid join type\n");
     }
-    constant = stof(argv[6]);
+    constant = stof(argv[6]); // B = chN/U
     // int port = atoi(argv[argc-1]);
     
-    /* ofstream logfile;
-    logfile.open(logfile_name, ios_base::app);
-    if (!logfile.is_open()) {
-        cout << logfile_name << "is not open" << endl;
-        exit(0);
-    } */
     int tableID1 = 0, tableID2 = 1;
     int join_idx1 = 0, join_idx2 = 0;
     char *sdata1, *sdata2, *sensitiveAttr1, *sensitiveAttr2;
@@ -883,7 +865,6 @@ int main(int argc, char *argv[]) {
     }
     //* load and encrypt
     if (ds == Tables) {
-        // cout << source1 << " " << source2 << endl;
         shared_ptr<AbsStorage> t1Storage = make_shared<InMemoryStorage>(EDATA_BLOCKSIZE);
         if (source1 == "supplier") {
             loadSupplier(tableID1, t1Storage, tablePath1);
@@ -892,7 +873,6 @@ int main(int argc, char *argv[]) {
         } else {
             loadTable(tableID1, t1Storage, tablePath1, test_data);
         }
-        // cout << "load t1" << endl;
         untrustedTableStorage[0].insert({0, t1Storage});
         sdata1 = new char[t1Storage->nometaSize()];
         t1Storage->serializeData(sdata1);
@@ -902,7 +882,6 @@ int main(int argc, char *argv[]) {
             memcpy(iter, &i, sizeof(int));
             iter += sizeof(int);
         }
-        // cout << "serialize t1" << endl;
         if (op == Join || op == SelectJoin) {
             shared_ptr<AbsStorage> t2Storage = make_shared<InMemoryStorage>(EDATA_BLOCKSIZE);
             if (source2 == "customer") {
@@ -912,7 +891,6 @@ int main(int argc, char *argv[]) {
             } else {
                 loadTable(tableID2, t2Storage, tablePath2, test_data);
             }
-            // cout << "load t2" << endl;
             vector<vector<int>>().swap(test_data);
             untrustedTableStorage[1].insert({0, t2Storage});
             sdata2 = new char[t2Storage->nometaSize()];
@@ -965,30 +943,33 @@ int main(int argc, char *argv[]) {
     ecall_libcxx_functions();
     sgx_status_t sgx_return = SGX_SUCCESS;
     // out of date
-    if (ds == Bins) {
-        bool restore_join_meta = false;
-        if (op == Join && join_simulation) {
-            restore_join_meta = true;
-        }
-        loadBinnedData(tableID1, source1, restore_join_meta, join_idx1);
-        if (op == Join) {
-            loadBinnedData(tableID2, source2, restore_join_meta, join_idx2);
-        }
-    }
+    // if (ds == Bins) {
+    //     bool restore_join_meta = false;
+    //     if (op == Join && join_simulation) {
+    //         restore_join_meta = true;
+    //     }
+    //     loadBinnedData(tableID1, source1, restore_join_meta, join_idx1);
+    //     if (op == Join) {
+    //         loadBinnedData(tableID2, source2, restore_join_meta, join_idx2);
+    //     }
+    // }
     int structureID = 0;
     if (op == Select) {
         int queryStart = INT_MIN, queryEnd = INT_MAX, queryDim = 0;
         int numBins = 0;
         if (ds == Tables) {
-            //* privtree
-            extractMeta(global_eid, tableID1, sdata1, untrustedTableStorage[tableID1][0]->nometaSize(), sensitiveAttr1, sattrSize);
-            delete []sdata1; delete []sensitiveAttr1;
-            start_time = clock();
-            sgx_return = createPDS(global_eid, &structureID, tableID1);
-            /* start_time = clock();
-            extractData(global_eid, tableID1, untrustedTableStorage[tableID1][0]->nometaSize()/untrustedTableStorage[tableID1][0]->getBlockSize());
-            sgx_return = initHTree(global_eid, &structureID, (int)pfJoinFlag, constant, 1);
-            sgx_return = createJoinBuckets(global_eid, structureID, tableID1, -1, (int)pfJoinFlag); */
+            if (jt == DO) {
+                extractMeta(global_eid, tableID1, sdata1, untrustedTableStorage[tableID1][0]->nometaSize(), sensitiveAttr1, sattrSize);
+                delete []sdata1; delete []sensitiveAttr1;
+                start_time = clock();
+                sgx_return = createPDS(global_eid, &structureID, tableID1);
+            }
+            if (jt == HTreeDO) {
+                start_time = clock();
+                extractData(global_eid, tableID1, untrustedTableStorage[tableID1][0]->nometaSize()/untrustedTableStorage[tableID1][0]->getBlockSize());
+                sgx_return = initHTree(global_eid, &structureID, (int)pfJoinFlag, constant, 1);
+                sgx_return = createJoinBuckets(global_eid, structureID, tableID1, -1, (int)pfJoinFlag);
+            }
             end_time = clock();
             usedtime = (double)(end_time - start_time)/(CLOCKS_PER_SEC);
             cout << "createPDS for table "<< tablePath1 << " done in " << usedtime << "s" << endl;
@@ -998,43 +979,19 @@ int main(int argc, char *argv[]) {
             } */
             const char *str = source1.c_str();
             buildIndex(global_eid, &numBins, structureID, queryDim, str, jt);
-            cout << "built index" << endl;
         }
-        if (ds == Bins) {
+        /* if (ds == Bins) {
             char *idxBinStart, *idxBinEnd;
             uint size1, size2;
             loadIndex(structureID, idxBinStart, idxBinEnd, size1, size2, source1);
             restoreIndex(global_eid, &numBins, structureID, queryDim, idxBinStart, size1, idxBinEnd, size2);
-        }
-        //* start index select 1d for now
+        } */
+        //* beginning of index select
         char *s_bins = (char *)malloc(numBins*sizeof(int));
         char *s_records = (char *)malloc(sizeof(int));
         int examine_queries = 0;
         ansTable = 0;
-
         start_time = clock();
-
-        /* for (uint q = 0; q < 100; q++) {
-            queryStart = test_queries[q].first;
-            queryEnd = test_queries[q].second;
-            int numSelectedBins = 0;
-            idxSelect(global_eid, &numSelectedBins, structureID, queryDim, queryStart, queryEnd, s_bins, numBins*sizeof(int), s_records, sizeof(int), jt);
-            vector<int> Rsize((int*)s_records, (int*)s_records+1);
-            vector<int> selectedBins((int*)s_bins, (int*)s_bins+numSelectedBins);
-            // examine_queries += checkBlowup(tableID1, tablePath1,  Rsize[0], queryDim, queryStart, queryEnd);
-            ansBins.clear();
-            ansBins.insert(ansBins.end(), selectedBins.begin(), selectedBins.end());
-            // toggle
-            replyClient(ssl);
-        }
-        end_time = clock();
-        usedtime = (double)(end_time - start_time)/(CLOCKS_PER_SEC);
-        // cout << "avg select response blowup " << avg_res_blowup/examine_queries << endl;
-        cout << "total query runtime " << usedtime << " s" << endl;
-        cout << "avg query runtime " << usedtime/100 << " s" << endl;
-        avg_res_blowup = 0; examine_queries = 0;
-        start_time = clock(); */
-        
         for (uint q = 0; q < test_queries.size(); q++) {
             queryStart = test_queries[q].first;
             queryEnd = test_queries[q].second;
@@ -1042,12 +999,11 @@ int main(int argc, char *argv[]) {
             idxSelect(global_eid, &numSelectedBins, structureID, queryDim, queryStart, queryEnd, s_bins, numBins*sizeof(int), s_records, sizeof(int), jt);
             vector<int> Rsize((int*)s_records, (int*)s_records+1);
             vector<int> selectedBins((int*)s_bins, (int*)s_bins+numSelectedBins);
-            // cout << queryStart << " " << queryEnd << " selected records " << Rsize[0] << endl; 
             // examine_queries += checkSelectCorrectness(tableID1, tablePath1, queryDim, queryStart, queryEnd, &selectedBins);
             examine_queries += checkBlowup(tableID1, tablePath1,  Rsize[0], queryDim, queryStart, queryEnd);
             /* ansBins.clear();
             ansBins.insert(ansBins.end(), selectedBins.begin(), selectedBins.end());
-            // toggle
+            // communication with client
             replyClient(ssl); */
         }
         end_time = clock();
@@ -1102,7 +1058,6 @@ int main(int argc, char *argv[]) {
                     }
                     start_time = clock();
                     sgx_return = initJoinPDS(global_eid, &structureID, (int)pfJoinFlag, isSelectJoin);
-                    // start_time = clock();
                     if (isSelectJoin == 0) {
                         sgx_return = createJoinPDS(global_eid, structureID, tableID1, tableID2);
                     } else {
@@ -1114,13 +1069,7 @@ int main(int argc, char *argv[]) {
                     //* one-time construction
                     extractData(global_eid, tableID1, untrustedTableStorage[tableID1][0]->nometaSize()/untrustedTableStorage[tableID1][0]->getBlockSize());
                     extractData(global_eid, tableID2, untrustedTableStorage[tableID2][0]->nometaSize()/untrustedTableStorage[tableID2][0]->getBlockSize());
-                    
                     sgx_return = initHTree(global_eid, &structureID, (int)pfJoinFlag, constant, 0);
-                    // start_time = clock();
-                    // end_time = clock();
-                    // usedtime = (double)(end_time - start_time)/(CLOCKS_PER_SEC);
-                    // cout << "init htree " << usedtime << "s" << endl;
-                    // start_time = clock();
                     sgx_return = createJoinBuckets(global_eid, structureID, tableID1, tableID2, (int)pfJoinFlag);
                 }
                 
@@ -1141,7 +1090,6 @@ int main(int argc, char *argv[]) {
         //* SelectJoin, assume that there is only one predicate
         if (op == Join) {
             test_queries.push_back({INT_MIN, INT_MAX});
-            // test_queries.push_back({1, 500});
         }
         int usSize = 0, writeID = untrustedTableStorage.size();
         for (int q = 0; q < test_queries.size(); q++) {
@@ -1149,7 +1097,6 @@ int main(int argc, char *argv[]) {
             if (jt == DO || jt == HTreeDO) {
                 if (!pfJoinFlag) {
                     int selectJoinAttr = selectIdx == 0 ? 1 : 0;
-                    // int selectJoinAttr = 1;
                     innerJoin(global_eid, &usSize, structureID, tableID1, tableID2, writeID, jt, test_queries[q].first, test_queries[q].second, selectJoinAttr);
                 } else {
                     // does not support select-join
@@ -1179,9 +1126,6 @@ int main(int argc, char *argv[]) {
                     untrustedTableStorage[writeID][1] = untrustedBinStorage[1];
                     untrustedBinStorage.clear();
                 }
-                // ansBins.clear();
-                // ansBins.push_back(1);
-                // ansTable = 2;
                 // toggle
                 // replyClient(ssl);
             }

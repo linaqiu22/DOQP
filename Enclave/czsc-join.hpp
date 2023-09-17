@@ -13,9 +13,7 @@ typedef struct {
 } JoinRecord;
 
 class CZSCJoin {
-    // vector<metaRecord> *t1_metadata;
-    // vector<metaRecord> *t2_metadata;
-    vector<KeyBin> keyBinList; // sort and expand 
+    vector<KeyBin> keyBinList;
     vector<JoinRecord> T1, T2;
     TraceMem<tbytes> *rbin1 = nullptr;
     TraceMem<tbytes> *rbin2 = nullptr;
@@ -43,6 +41,5 @@ class CZSCJoin {
     void createBins(int tableID);
     void binning(int tableID, int start, int end, int readBinID);
     pair<int,int> join(int writeID, bool pfJoin=false);
-    // void crossProduct(int nreal1, int nreal2);
     int checkOutputLen(bool optimized=false);
 };

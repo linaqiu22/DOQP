@@ -250,9 +250,6 @@ void parseInput(vector<metaRecord> &metaData, char *inputData, int inputSize, in
         }
         metaData.push_back(mr);
     }
-    // for (auto &&pr : initDomain) {
-    //     printf("min %d max %d\n", pr.first, pr.second);
-    // }
     delete []plaintext;
     delete []ciphertext;
 }

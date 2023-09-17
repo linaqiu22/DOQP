@@ -33,6 +33,5 @@ uint computeCiphertextSize(uint data_size);
 
 //* others
 void concatIntegers(char *text, int count, ...);
-// vector<int> deconstructIntegers(uchar *data, int dataSize);
 bytes bytesFromNumber(number num);
 

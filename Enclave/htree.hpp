@@ -47,7 +47,7 @@ class HTree {
     
     //bucketization
     vector<pair<int, int>> partitionSizes;
-    vector<vector<pair<int, int>>> accumulateSizes; // {accuRealPartSize, accuPureNoise}
+    vector<vector<pair<int, int>>> accumulateSizes; // {accumulate real partition size, accumulate pure noise}
     vector<int> boundaries;
     int numPart1 = 0, numPart2 = 0;
     int bucketNoisyMax = 0;
@@ -56,8 +56,11 @@ class HTree {
     void getHistBins(int tableID);
     void populateRangeSanitizer(int tableid, bool ci=true);
     pair<int, int> BRC(Sanitizer *rangeSanitizer, int from, int to);
+    // Uni-DO-join
     void constructBucketsOneTime();
+    // Ind-DO-join
     void constructBuckets(int tableID);
+    // PF-join, construct buckets for foreign key table
     void constructPBuckets(int tableID, TraceMem<pair<int,tbytes>> *data);
     void moveData(int tableID, query_type op, TraceMem<pair<int,tbytes>> *data);
     pair<int, int> bucketCrossProduct(int writeID, int qs, int qe, bool jattr);

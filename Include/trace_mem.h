@@ -58,12 +58,6 @@ class TraceMem {
         T* readPtr(int i) {
             return &mem[i];
         }
-        // T* read(int i, int scale) {
-        //     T *res = new T[scale];
-        //     int copy_size = min(size - i*scale, scale)*sizeof(T);
-        //     memcpy(res, (T*)mem+i*scale, copy_size);
-        //     return res; 
-        // }
 
         void write(int i, T elt) {
             assert(i >= 0 && i < size);
@@ -75,18 +69,9 @@ class TraceMem {
             mem[count] = elt;
             count++;
         }
-        // void write(int i, int scale, T* elt) {
-        //     int copy_size = min(size - i*scale, scale)*sizeof(T);
-        //     memcpy((T *)mem + i*scale, elt, copy_size);
-        // }
-
-        // uint32_t getTotalRW() {
-        //     return num_rws;
-        // }
 
         void freeSpace() {
             free(mem);
         }
 };
 
-// template<typename T> int TraceMem<T>::count = 0;

@@ -34,7 +34,6 @@ int TreeNode::split(int start_id, int beta) { // beta is max number of children
         return 0;
     }
     children = new TreeNode[numChildren];
-    // printf("parent domain (%d %d) (%d %d)\n", domain[0].first, domain[0].second, domain[1].first, domain[1].second);
     for (int i = 0; i < numChildren; i++) {
         children[i].id = node_id;
         node_id++;
@@ -43,9 +42,7 @@ int TreeNode::split(int start_id, int beta) { // beta is max number of children
         bitset<10> binary(i); // number of sensitive attributes upper bounded by 1024
         int nxtSplitIdx = 0;
         for (int j = 0; j < dim; j++) {
-            // if (nxtSplitIdx >= dimSplit.size()) {
-            //     break;
-            // }
+
             pair<int, int> drange;
             if (nxtSplitIdx < (int)dimSplit.size() && j == dimSplit[nxtSplitIdx]) {
                 int d = nSplit-1-nxtSplitIdx;
@@ -60,11 +57,8 @@ int TreeNode::split(int start_id, int beta) { // beta is max number of children
                 // printf("privtree branch test warning!!\n");
             }
             children[i].domain.push_back(drange);
-            // printf("(%d %d) ", drange.first, drange.second);
         }
-        // children[i].count = 0;
     }
-    // printf("\n");
     return numChildren;
 } 
 
@@ -93,7 +87,6 @@ PrivTree::PrivTree(vector<metaRecord> *t1data, vector<metaRecord> *t2data, vecto
     nodelist.push_back(root);
     tWorkSpace[0] = new TraceMem<tbytes>(0);
     tWorkSpace[1] = new TraceMem<tbytes>(0);
-    // printf("add %d %d\n", workSpace[0], workSpace[1]);
 }
 
 PrivTree::PrivTree(){};
@@ -102,7 +95,6 @@ void PrivTree::createTree() {
     int level = 0;
     while(!nodelist.empty()) {
         decompose(level);
-        // printf("level %d done\n", level);
         level++;
         // get count level by level linear scan (no communication with data owner)
         countInDomains();
@@ -116,24 +108,11 @@ void PrivTree::createTree() {
                 } else {
                     return leaf1->domain[i].second < leaf2->domain[i].second;
                 }
-                
-                // if (leaf1->domain[i].second == leaf2->domain[i].second) {
-                //     continue;
-                // } else {
-                //     return leaf1->domain[i].second < leaf2->domain[i].second;
-                // }
             }
             return leaf1->domain[i].first < leaf2->domain[i].first;
         }
         return false;
     });
-    /* for (int i = 0; i < leaves.size(); i++) {
-        if (100 < leaves[i]->domain[1].first || 50 > leaves[i]->domain[1].second) {
-            continue;
-        } else {
-            printf("(%d %d) (%d %d)\n", leaves[i]->domain[0].first, leaves[i]->domain[0].second, leaves[i]->domain[1].first, leaves[i]->domain[1].second);
-        }
-    } */
 }
 
 void PrivTree::decompose(int level) {
@@ -161,7 +140,6 @@ void PrivTree::decompose(int level) {
                 noise2 = 0;
             }
             node->noise[0] = noise1;
-            // node->noise[0] = 0;
             node->noise[1] = noise2;
             binNoisyMax = max(binNoisyMax, node->count[0]+noise1);
             binNoisyMax = max(binNoisyMax, node->count[1]+noise2);
@@ -213,13 +191,8 @@ void PrivTree::augmentInput(int tableID, vector<metaRecord> *data, int table, bo
     }
     bool inEnclave;
     if (table == 1) {
-        // if (op == Select) {
-        //     t1_inEnclave = false;
-        //     inEnclave = false;
-        // } else {
-            t1_inEnclave = noiseSum+data->size() <= IO_BLOCKSIZE ? true : false;
-            inEnclave = t1_inEnclave;
-        // }
+        t1_inEnclave = noiseSum+data->size() <= IO_BLOCKSIZE ? true : false;
+        inEnclave = t1_inEnclave;
     } else {
         t2_inEnclave = noiseSum+data->size() <= IO_BLOCKSIZE ? true : false;
         inEnclave = t2_inEnclave;
@@ -242,19 +215,11 @@ void PrivTree::augmentInput(int tableID, vector<metaRecord> *data, int table, bo
     expand(noiseArray); 
     int mark = INT_MAX;
     int rid_pos = textSizeVec[tableID] - sizeof(int)*2;
-    // int key1Count = 0, key2Count = 0;
     if (!simulation && inEnclave) {
-        //TODO
         char *dummyRecord = new char[textSizeVec[tableID]];
         for (int i = 0; i < noiseSum; i++) {
             tbytes record;
             auto dummy_iter = dummyRecord;
-            // if (noiseArray[i].second.values[0] == 1) {
-            //     key1Count++;
-            // }
-            // if (noiseArray[i].second.values[0] == 2) {
-            //     key2Count++;
-            // }
             for (auto &&v : noiseArray[i].second.values) {
                 memcpy(dummy_iter, &v, sizeof(int));
                 dummy_iter += sizeof(int);
@@ -267,8 +232,6 @@ void PrivTree::augmentInput(int tableID, vector<metaRecord> *data, int table, bo
             }
             rbin->write(i, {noiseArray[i].second.values[0], record});
         }
-        // printf("key 1 has noise %d\n", key1Count);
-        // printf("key 2 has noise %d\n", key2Count);
         readDataBlockPair_Wrapper(tableID, tableID, 0, 0, rbin, noiseSum, data->size());
         //* only need for iterative compaction binning
         if (!sorting){
@@ -287,20 +250,6 @@ void PrivTree::augmentInput(int tableID, vector<metaRecord> *data, int table, bo
             }
         }
     }
-    // int preKey = 1;
-    // int keyCount = 0;
-    // for (int i = 0; i < rbin->size; i++) {
-    //     auto record = rbin->read(i);
-    //     uchar tmpInt[sizeof(int)];
-    //     for (int k = 0; k < sizeof(int); k++) {
-    //         tmpInt[k] = record[k];
-    //     }
-    //     vector<int> key = deconstructNumbers<int>(tmpInt, sizeof(int));
-    //     if (key[0] == preKey) {
-    //         keyCount++;
-    //     } 
-    // }
-    // printf("key %d count %d\n", preKey, keyCount);
     
     //* expand table OCALL
     if (!simulation && !inEnclave) {
@@ -319,7 +268,7 @@ void PrivTree::augmentInput(int tableID, vector<metaRecord> *data, int table, bo
                     memcpy(dummy_iter, &v, sizeof(int));
                     dummy_iter += sizeof(int);
                 }
-                if (op == Join) { //! why this is only for join op
+                if (op == Join) { 
                     memcpy(dummyRecord+rid_pos, &mark, sizeof(int));
                 }
                 encryptRecord(textSizeVec[tableID], dummyRecord, encryptedDummy);
@@ -333,23 +282,6 @@ void PrivTree::augmentInput(int tableID, vector<metaRecord> *data, int table, bo
         delete []dummyRecord;
         free(noise);
     }
-    /* if (!inEnclave) {
-        vector<metaRecord> *tbin;
-        if (table == 1) {
-            root->bin1 = new vector<metaRecord>;
-            tbin = root->bin1;
-        } else {
-            root->bin2 = new vector<metaRecord>;
-            tbin = root->bin2;
-        }
-        tbin->insert(tbin->end(), data->begin(), data->end());
-        data->clear();
-        for (auto &&dummy : noiseArray) {
-            tbin->push_back(dummy.second);
-        }
-        printf("Size of PDS %d\n", tbin->size());
-        printf("number of bins: %d\n", leaves.size());
-    } */
 }
 
 void PrivTree::binning(int tableID, TreeNode *node, int table, bool simulation) {
@@ -376,15 +308,11 @@ void PrivTree::binning(int tableID, TreeNode *node, int table, bool simulation) 
             bq.pop();
             vector<metaRecord> *out1 = new vector<metaRecord>;
             vector<metaRecord> *out2 = new vector<metaRecord>;
-            // compactMeta<metaRecord>(in, out1, out2, [&d, &node](metaRecord &e){ 
-            //     return e.values[d] <= node->boundaries[d];
-            // });
-            if (!simulation) { //TODO: this fill is problematic I guess
+            if (!simulation) {
                 int out1_fill_size = (IO_BLOCKSIZE - (out1->size() % IO_BLOCKSIZE)) % IO_BLOCKSIZE;
                 if (in->size() <= IO_BLOCKSIZE) {
                     out1_fill_size = 0;
                 }
-                // out1_fill_size = 1;
                 cnet.compact(tableID, binID, in->size()+out1_fill_size, virtualBinID, [&d, &node](vector<int> &e) { 
                     return e[d] <= node->boundaries[d];
                 });
@@ -408,7 +336,6 @@ void PrivTree::binning(int tableID, TreeNode *node, int table, bool simulation) 
             node->children[i].bin2 = childBin;
         }
         if (!simulation) {
-            // move_bin_OCALL(tableID, virtualBinID, node->children[i].id, min, max);
             move_resize_bin_OCALL(tableID, virtualBinID, node->children[i].id, childBin->size());
         }
         bq.pop();
@@ -420,7 +347,7 @@ void PrivTree::binning(int tableID, TreeNode *node, int table, bool simulation) 
     }
 }
 
-void PrivTree::binningInEnclave(int tableID, int pos, TreeNode *node, int table, bool sorting) {//TODO if using direct sort, will it be faster
+void PrivTree::binningInEnclave(int tableID, int pos, TreeNode *node, int table, bool sorting) {
     //* use sorting
     if (sorting) {
         TraceMem<pair<int,tbytes>> *rbin;
@@ -440,7 +367,6 @@ void PrivTree::binningInEnclave(int tableID, int pos, TreeNode *node, int table,
             }
             vector<int> r2Key = deconstructNumbers<int>(tmpInt, sensitive_dim * sizeof(int));
             return r1Key <= r2Key;
-            // return r1.first <= r2.first;
         });
         net.obliSort(rbin->size, true);
 
@@ -455,18 +381,8 @@ void PrivTree::binningInEnclave(int tableID, int pos, TreeNode *node, int table,
                 leaves[i]->rbin2 = new TraceMem<tbytes>(binSize);
                 bin = leaves[i]->rbin2;
             }
-            // printf("tableID %d domain (%d %d) (%d %d) binSize %d\n", tableID, leaves[i]->domain[0].first, leaves[i]->domain[0].second, leaves[i]->domain[1].first, leaves[i]->domain[1].second, binSize);
             for (int j = 0; j < binSize; j++) {
                 auto record = rbin->read(binStart+j);
-                // uchar tmpInt[sensitive_dim * sizeof(int)];
-                // for (int k = 0; k < sensitive_dim * sizeof(int); k++) {
-                //     tmpInt[k] = record.second[k];
-                // }
-                // vector<int> key = deconstructNumbers<int>(tmpInt, sensitive_dim * sizeof(int));
-                // if (key[0] < leaves[i]->domain[0].first || key[0] >= leaves[i]->domain[0].second || key[1] < leaves[i]->domain[1].first || key[1] >= leaves[i]->domain[1].second) {
-                //     printf("key (%d %d) ", key[0], key[1]);
-                // }
-
                 bin->write(j, record.second);
             }
             binStart += binSize;
@@ -476,7 +392,6 @@ void PrivTree::binningInEnclave(int tableID, int pos, TreeNode *node, int table,
 
     //* use iterative compaction for sensitive_dim > 1  
     if (!sorting) {
-        // printf("start iterative compaction\n");
         if (node->children == nullptr) {
             return;
         }
@@ -499,9 +414,7 @@ void PrivTree::binningInEnclave(int tableID, int pos, TreeNode *node, int table,
                 bq.pop();
                 TraceMem<tbytes> *out1 = new TraceMem<tbytes>(0);
                 TraceMem<tbytes> *out2 = new TraceMem<tbytes>(0);
-                // printf("before compactMeta\n");
                 compactMeta<tbytes>(in, out1, out2, [&d, &node](tbytes &e){ 
-                    //TODO
                     uchar tmpInt[sizeof(int)];
                     int start = d*sizeof(int);
                     for (int k = start; k < (d+1)*sizeof(int); k++) {
@@ -512,7 +425,6 @@ void PrivTree::binningInEnclave(int tableID, int pos, TreeNode *node, int table,
                 });
                 bq.push({virtualBinID++, out1}); bq.push({virtualBinID++, out2});
                 in->freeSpace();
-                // printf("out1 size %d out2 size %d\n", out1->size, out2->size);
             }
         }
         int numChildren = pow(2, nSplit);
@@ -599,7 +511,6 @@ vector<TreeNode*> PrivTree::select(int tableID, int qs, int qe) {
         } else {
             selectedBins.push_back(leaves[i]);
             binNoisyMaxTmp = max(binNoisyMaxTmp, leaves[i]->rbin2->size);
-            // printf("(%d %d) (%d %d)\n", leaves[i]->domain[0].first, leaves[i]->domain[0].second, leaves[i]->domain[1].first, leaves[i]->domain[1].second);
         }
     }
     binNoisyMax = binNoisyMaxTmp;
@@ -711,7 +622,6 @@ pair<int,int> PrivTree::join(int tableID1, int tableID2, int writeID, int qs, in
                     nreal1 = readBlockSize;
                 }
             } else {
-                // printf("leaf %d domain (%d %d) rbin1 size %d\n", leaves[i]->id, leaves[i]->domain[0].first, leaves[i]->domain[0].second, leaves[i]->rbin1->size);
                 nreal1 = leaves[i]->rbin1->size;
             }
             tWorkSpace[0]->resize(nreal1);
@@ -721,7 +631,6 @@ pair<int,int> PrivTree::join(int tableID1, int tableID2, int writeID, int qs, in
                 for (int j = 0; j < nreal1; j++) {
                     tWorkSpace[0]->write(j, leaves[i]->rbin1->read(pos1+j));
                 }
-                // leaves[i]->rbin1->freeSpace(); // reduce heap size for large inputs
             }
             int readFlag2 = readBlockSize;
             int iter2 = 0;
@@ -746,7 +655,6 @@ pair<int,int> PrivTree::join(int tableID1, int tableID2, int writeID, int qs, in
                     for (int j = 0; j < nreal2; j++) {
                         tWorkSpace[1]->write(j, leaves[i]->rbin2->read(pos2+j));
                     }
-                    // leaves[i]->rbin2->freeSpace(); // reduce heap size for large inputs
                 }
                 numRealMatches = crossProduct(tWorkSpace[0], tWorkSpace[1], tableID1, tableID2, nreal1, nreal2, writeID, useOCALL, qs, qe, 0);
                 outputSize += (nreal1 * nreal2);
@@ -770,15 +678,13 @@ pair<int,int> PrivTree::join(int tableID1, int tableID2, int writeID, int qs, in
     return {numRealMatches, outputSize-inEnclaveSize};
 }
 
-//TODO initialize selected_count
 pair<int, int> PrivTree::pfJoin(int tableID1, int tableID2, int writeID) {
     int readBlockSize = min(binNoisyMax, OCALL_MAXSIZE);
     char *dblock = (char*)malloc(readBlockSize * EDATA_BLOCKSIZE);
-    // int numRealMatches = 0;
     int outputSize = 0;
     TraceMem<pair<int, tbytes>> binpair(0);
     joinOutput = new TraceMem<cbytes>(0);
-    //! assume every bin pair can fit in allocated heap/EPC
+    // assume every bin pair can fit in allocated heap/EPC
 
     int t1_rid_pos = textSizeVec[tableID1] - sizeof(int)*2;
     int t2_rid_pos = textSizeVec[tableID2] - sizeof(int)*2;
@@ -813,9 +719,7 @@ pair<int, int> PrivTree::pfJoin(int tableID1, int tableID2, int writeID) {
                 binpair.write(j, {0, tWorkSpace[0]->read(j)});
             }
         } else {
-            // printf("offset %d binsize %d\n", offset, leaves[i]->rbin1->size);
             for (int j = 0; j < offset; j++) {
-                //TODO
                 binpair.write(j, {0, leaves[i]->rbin1->read(j)});
             }
         }
@@ -838,14 +742,11 @@ pair<int, int> PrivTree::pfJoin(int tableID1, int tableID2, int writeID) {
                 binpair.write(j, {1, tWorkSpace[0]->read(j)});
             }
         } else {
-            // printf("offset %d binsize %d\n", binpairSize-offset, leaves[i]->rbin2->size);
             for (int j = 0; j < binpairSize-offset; j++) {
-                //TODO
                 binpair.write(offset+j, {1, leaves[i]->rbin2->read(j)});
             }
         }
         numRealMatches = sortMergeJoin(&binpair);
-        // enclaveCompact(binpairSize-offset);
         ORCompact(binpairSize-offset);
         int counter = 0;
         auto riter = res;
@@ -867,7 +768,7 @@ pair<int, int> PrivTree::pfJoin(int tableID1, int tableID2, int writeID) {
         if (counter > 0) {
             write_join_output_OCALL(writeID, res, counter*EDATA_BLOCKSIZE);
         }
-        outputSize += leaves[i]->count[1] + leaves[i]->noise[1]; //! assume that foreign key table is the 2nd input table
+        outputSize += leaves[i]->count[1] + leaves[i]->noise[1]; // assume that foreign key table is the 2nd input table
         delete []selected_count;
     }
     binpair.freeSpace();
@@ -903,7 +804,6 @@ int PrivTree::checkJoinOutput(int join_idx1, int join_idx2) {
     for (auto ptr : leaves) {
         for (uint i = 0; i < ptr->bin1->size(); i++) {
             if (ptr->bin1->at(i).rid == INT_MAX) {
-                // printf("t1 join key %d\n", ptr->bin1->at(i).values[join_idx1]);
                 continue;
             }
             for (uint j = 0; j < ptr->bin2->size(); j++) {
@@ -916,7 +816,6 @@ int PrivTree::checkJoinOutput(int join_idx1, int join_idx2) {
             }
         }
         outputLen += (ptr->count[0]+ptr->noise[0]) * (ptr->count[1]+ptr->noise[1]);
-        // printf("bin1 size %d, bin2 size %d\n", (ptr->count[0]+ptr->noise[0]), (ptr->count[1]+ptr->noise[1]));
     }
     printf("join result size: %d\n", joinSize);
     printf("number of bins: %d\n", leaves.size());
@@ -952,17 +851,9 @@ void PrivTree::checkSelction(int start, int end, int query_dim, vector<int> *sel
         outputLen += leaves[selectedBins->at(binIter)]->bin1->size();
         binIter++;
     }
-    /* cout << "selection size: " << selectSize << endl;
-    cout << "min num of selected bins: " << minNumBins << endl;
-    cout << "selection output len: " << outputLen << endl;
-    cout << "actual num of selected bins: " << selectedBins.size() << endl; */
     printf("selection size: %d\n", selectSize);
     printf("min num of selected bins: %d\n", minNumBins);
     printf("selection output len: %d\n", outputLen);
     printf("actual num of selected bins: %d\n", selectedBins->size());
 }
-
-/* void PrivTree::cleanHelper() {
-    keyHelperList.clear();
-} */
 

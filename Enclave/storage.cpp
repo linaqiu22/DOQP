@@ -6,8 +6,6 @@ InMemoryStorage::InMemoryStorage(number blockSize) :
     AbsStorage(blockSize)
 {
     auto emptyBlock = bytesFromNumber(empty());
-    // number material[1] = {empty()};
-    // auto emptyBlock = bytes((uchar *)material, (uchar *)material + sizeof(number));
     emptyBlock.resize(blockSize);
     set(meta(), emptyBlock);
 }
@@ -19,7 +17,6 @@ InMemoryStorage::~InMemoryStorage()
 void InMemoryStorage::serializeData(char* sdata, bool exceptMeta) {
     auto iter = sdata;
     for (auto &&pr : memory) {
-        // memcpy(iter, &pr.second, blockSize); 
         if (exceptMeta && pr.first == meta()) {
             continue;
         }
@@ -40,14 +37,8 @@ void InMemoryStorage::set(number location, const bytes &data)
     if (data.size() != blockSize)
     {
         printf("data size %lu does not match block size %llu\n", data.size(), blockSize);
-        // printf("data size does not match block size\n");
         throw Exception("runtime error.");
     }
-    // } else if (data.size() < blockSize) {
-    //     data.resize(blockSize);
-    // }
-
-    // checkLocation(location);
 
     memory[location] = data;
 }
@@ -82,7 +73,6 @@ void InMemoryStorage::checkLocation(number location)
     if (location >= locationCounter)
     {
         printf("attempt to access memory that was not malloced %llu\n", location);
-        // printf("attempt to access memory that was not malloced\n");
         throw Exception("runtime error.");
     }
 }

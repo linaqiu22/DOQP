@@ -3,15 +3,11 @@
 TraceMem<cbytes> *jWorkSpace[2];
 
 void extractMeta(int tableID, char *encryptedData, int inSize, char *sensitiveAttr, uint sattrSize) {
-    auto attrCount = sattrSize / sizeof(int);
+    auto attrCount = sattrSize / sizeof(int); // number of sensitive attributes
     vector<int> attrIdx((int *)sensitiveAttr, (int *)sensitiveAttr + attrCount);
     if (tableID == 0) {
-        // metaData_t1.clear(); initDomain.clear();
-        // printf("tableID 0 ");
         parseInput(metaData_t1, encryptedData, inSize, tableID, attrIdx, initDomain);
     } else {
-        // metaData_t2.clear();
-        // printf("tableID 1 ");
         parseInput(metaData_t2, encryptedData, inSize, tableID, attrIdx, initDomain);
     }
 }
@@ -50,12 +46,6 @@ int createPDS(int tableID) {
     tpds.privtree->createTree();
     bool sorting = sensitive_dim > 1 ? false : true;
     tpds.privtree->augmentInput(tableID, &metaData_t1, 1, select_simulation, Select, sorting);
-    // if (!select_simulation) {
-    //     initBinStorage_OCALL(tableID, tpds.privtree->root->id);
-    // }
-    // printf("start binning\n");
-    // tpds.privtree->binning(tableID, tpds.privtree->root, 1, select_simulation);
-
     if (!tpds.privtree->t1_inEnclave) {
         if (!select_simulation) {
             initBinStorage_OCALL(tableID, tpds.privtree->root->id);
@@ -69,9 +59,6 @@ int createPDS(int tableID) {
         // tpds.privtree->cleanHelper();
     }
     // tpds.privtree->checkSplitCorrectness();
-    // if (!select_simulation) {
-    //     tpds.privtree->collectBins(tableID, 1);
-    // }
     tpds.indexes.resize(initDomain.size());
     pds.push_back(tpds);
     return pds.size()-1;
@@ -179,12 +166,6 @@ int initHTree(int pfJoin, float constant, int ind) {
     return pds.size()-1;
 }
 
-// void tmpAugmentInput(int structureID, int tableID1, int tableID2) {
-//     PDS &tpds = pds[structureID];
-//     tpds.privtree->augmentInput(tableID1, &metaData_t1, 1, join_simulation, Join);
-//     tpds.privtree->augmentInput(tableID2, &metaData_t2, 2, join_simulation, Join);
-// }
-
 // PrivTree
 void createJoinPDS(int structureID, int tableID1, int tableID2) {
     PDS &tpds = pds[structureID];
@@ -223,7 +204,6 @@ void createJoinPDS(int structureID, int tableID1, int tableID2) {
 void createSelectJoinPDS(int structureID, int tableID1, int tableID2) {
     PDS &tpds1 = pds[structureID-1];
     PDS &tpds2 = pds[structureID];
-    // bool sorting = sensitive_dim > 1 ? false : true;
     tpds1.privtree->augmentInput(tableID1, &metaData_t1, 1, join_simulation, Join, true);
     tpds2.privtree->augmentInput(tableID2, &metaData_t2, 2, join_simulation, Join, false);
     printf("done augment tables\n");
@@ -238,24 +218,6 @@ void createSelectJoinPDS(int structureID, int tableID1, int tableID2) {
 
 // HTree
 void createJoinBuckets(int structureID, int tableID1, int tableID2, int pfJoin) {
-    /* if (pfJoin == 0) {
-        htree->getHistBins(tableID1);
-    } else {
-        Sanitizer hbins(1, TraceMem<HNode>(0));
-        htree->rangeSanitizer.push_back(hbins);
-    }
-    htree->getHistBins(tableID2);
-    metaData_t1.clear(); metaData_t2.clear();
-    
-    if (pfJoin == 0) {
-        htree->populateRangeSanitizer(tableID1); // table with primary key
-    }
-    htree->populateRangeSanitizer(tableID2);
-    // htree->constructBucketsOneTime(); // not for pf-join
-    if (pfJoin == 0) {
-        htree->constructBuckets(tableID1);
-    }
-    htree->constructBuckets(tableID2); */
     if (pfJoin == 0) {
         pds[structureID].htree->moveData(tableID1, Join, data[tableID1]);
     } else {
@@ -413,8 +375,6 @@ void restoreJoinMeta(int tableID, int binID, int pos, int join_idx, char *encryp
 }
 
 int idxSelect(int structureID, int idx_dim, int queryStart, int queryEnd, char *s_bins, uint dsize, char *s_records, uint rdsize, join_type jtype) {
-    // int dimStart = pds[structureID].privtree->initDomain[dim].first;
-    // int dimEnd = pds[structureID].privtree->initDomain[dim].second;
     number dimStart = 0;
     number dimEnd = ULLONG_MAX;
     bool binSearch = false;
@@ -519,30 +479,6 @@ int pfJoin(int structureID, int tableID1, int tableID2, int writeID, join_type j
     return joinStats.second;
 }
 
-/* int real = 0;
-    int noise = 0;
-    int remove = 0;
-    printf("joinOutput size %d\n", joinOutput->size);
-    for (int i = 0; i < joinOutput->size; i++) {
-        auto record = joinOutput->read(i);
-        bytes recordBytes;
-        for (int j = 0; j < sizeof(int); j++) {
-            recordBytes.push_back(record[j]);
-        }
-        vector<int> recordInts = deconstructIntegers(writeID, recordBytes, sizeof(int));
-        if (recordInts[0] >= 0) {
-            if (recordInts[0] != INT_MAX) {
-                real++;
-            } else {
-                noise++;
-            }
-        } else {
-            remove++;
-        }
-    }
-    printf("check compact real %d noise %d remove %d total %d\n", real, noise, remove, real+noise+remove); */
-
-//* for time measurement
 void joinCompact(int structureID, int writeID, int us_size, join_type jtype) {
     /* vector<bool> distinguishedStatus;
     bool flipped = enclaveJoinConsolidate(pds[structureID].privtree->noisyOutputSize);
@@ -594,7 +530,7 @@ void joinCompact(int structureID, int writeID, int us_size, join_type jtype) {
         if (noisyOutputSize < joinOutput->size) {
             printf("In enclave join compact\n");
             // enclaveCompact(noisyOutputSize); //Goodrich
-            ORCompact(noisyOutputSize);
+            ORCompact(noisyOutputSize); // faster
             writeDataBlock_Wrapper(writeID, 0, 0, joinOutput, noisyOutputSize);
             printf("compact done\n");
         }
@@ -606,8 +542,6 @@ void joinCompact(int structureID, int writeID, int us_size, join_type jtype) {
         initBinStorage_OCALL(writeID, 0);
         jWorkSpace[0] = new TraceMem<cbytes>(0);
         jWorkSpace[1] = new TraceMem<cbytes>(0);
-        // jWorkSpace[0]->insert(IO_BLOCKSIZE, *joinOutput, 0);
-        // jWorkSpace[1]->insert(IO_BLOCKSIZE, *joinOutput, IO_BLOCKSIZE);
         CompactNet<cbytes> cnet(jWorkSpace[0], jWorkSpace[1]);
         //! this function is incorrect
         cnet.compact(writeID, 0, us_size, 1, [](vector<int> &match) {
@@ -621,49 +555,6 @@ void joinCompact(int structureID, int writeID, int us_size, join_type jtype) {
     selected_count_idx = 1;
     realMatches = 0;
     jDistArray.clear();
-
-    /* int real = 0;
-    int noise = 0;
-    int remove = 0;
-    printf("joinOutput size %d\n", joinOutput->size);
-    for (int i = 0; i < joinOutput->size; i++) {
-        auto record = joinOutput->read(i);
-        bytes recordBytes;
-        for (int j = 0; j < sizeof(int); j++) {
-            recordBytes.push_back(record[j]);
-        }
-        vector<int> recordInts = deconstructIntegers(writeID, recordBytes, sizeof(int));
-        if (recordInts[0] >= 0) {
-            if (recordInts[0] != INT_MAX) {
-                real++;
-            } else {
-                noise++;
-            }
-        } else {
-            remove++;
-        }
-        if (i == pds[structureID].privtree->noisyOutputSize) {
-            printf("check compact real %d noise %d remove %d total %d\n", real, noise, remove, real+noise+remove);
-        }
-    }
-    printf("check compact real %d noise %d remove %d total %d\n", real, noise, remove, real+noise+remove); */
-    /* int realElements = 0;
-    int dummyElements = 0;
-    for (int i = 0; i < joinOutput->size; i++) {
-        auto joinRow = joinOutput->read(i);
-        uchar joinMark[sizeof(int)];
-        for (int k = 0; k < sizeof(int); k++) {
-            joinMark[k] = joinRow[k];
-        }
-        int mark = vector<int>((int*)joinMark, (int*)joinMark+1)[0];
-        if (mark != INT_MAX) {
-            realElements++;
-        }
-        if (mark == INT_MAX) {
-            dummyElements++;
-        }
-    }
-    printf("After compaction realElements %d dummyElements %d total %d\n", realElements, dummyElements, joinOutput->size); */
 }
 
 int czscJoin(int tableID1, int tableID2, int writeID, int pfJoin) {
@@ -697,12 +588,3 @@ int czscJoin(int tableID1, int tableID2, int writeID, int pfJoin) {
         return joinStats.second;
     }
 }
-
-//* for time measurement
-/* void czscJoinCompact(int writeID, int size) {
-    initBinStorage_OCALL(writeID, 0);
-    compact(writeID, 0, size, 1, nullptr, [](vector<int> &match) {
-        return match[0] >= 0;
-    }, true);
-    // move_resize_bin_totable_OCALL(writeID, 0, 0, compactResSize);
-} */

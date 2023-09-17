@@ -2,10 +2,10 @@
 
 HTree::HTree(vector<metaRecord> *t1meta, vector<metaRecord> *t2meta, vector<pair<int, int> > initDomain, double eps, double delta, bool pfjoin, float constant, bool uni):
                                                     t1meta(t1meta), t2meta(t2meta), eps(eps), delta(delta), pfjoin(pfjoin), constant(constant), uni(uni) {
-    //sort t1meta and t2meta by the first attribute (sensitive attr = 1)
+    //sort t1meta and t2meta by the key attribute
     //scan to obtain histogram, first compact then expand
     //build rangeSanitizer
-    //construct buckets (sorting again)
+    //construct buckets (sort again)
     t1Size = t1meta->size();
     t2Size = t2meta->size();
     keyMin = initDomain[0].first;
@@ -14,8 +14,6 @@ HTree::HTree(vector<metaRecord> *t1meta, vector<metaRecord> *t2meta, vector<pair
     printf("keyMax %d keyMin %d domainsize %d\n", keyMax, keyMin, domainSize);
     height = ceil(log(domainSize) / log(K)) + 1;
     //* show the effect of CreateBuckets
-    // eps_h = eps; delta_h = delta;
-    // eps_b = 0; delta_b = 0;
     eps_h = 0.2 * eps; delta_h = 0.2 * delta;
     eps_b = eps - eps_h; delta_b = delta - delta_h;
 
@@ -24,7 +22,7 @@ HTree::HTree(vector<metaRecord> *t1meta, vector<metaRecord> *t2meta, vector<pair
     } else {
         accumulateSizes.resize(1);
     }
-    // printf("pfjoin %d uni %d\n", (int)pfjoin, (int)uni);
+
     //* independent
     if (!uni) {
         if (!pfjoin && !t1meta->empty()) {
@@ -59,25 +57,11 @@ void HTree::getHistBins(int tableID) {
     }
     hbins[0].write(meta->size()-1, {preKey-keyMin, count});
 
-    /* Sanitizer hbins(1, vector<HNode>(domainSize));
-    auto meta = tableID == 0 ? t1meta : t2meta;
-    for (int i = keyMin; i <= keyMax; i++) {
-        int count = 0;
-        for (int j = 0; j < meta->size(); j++) {
-            if (meta->at(j).values[0] == i) {
-                count++;
-            }
-        }
-        int noise = TGeom(eps_h, delta_h, height, false);
-        hbins[0][i-keyMin] = {count, noise};
-
-    } */
     //compaction
     compactMeta<HNode>(&hbins[0], nullptr, nullptr, [](HNode &e) {
         return e.second != INT_MIN;
     }, domainSize);
     expand(&hbins[0]);
-    int leafSum = 0, leafRealData = 0;
     for (int i = 0; i < domainSize; i++) {
         auto pr = hbins[0].read(i);
         if (pr.first == i) {
@@ -86,85 +70,11 @@ void HTree::getHistBins(int tableID) {
             pr.first = 0;
         }
         int noise = TGeom(eps_h, delta_h, height, false);
-        //* show the effect of CreateBuckets
-        // int noise = TGeom(eps_h, delta_h, height, true);
         pr.second = noise;
         hbins[0].write(i, pr);
-        leafRealData += pr.first;
-        leafSum += (pr.first+pr.second);
     }
-    printf("Real %d No createBuckets PDS size %d\n", leafRealData, leafSum);
     rangeSanitizer.push_back(hbins);
 }
-
-
-/* void HTree::getHistBins() {
-    Sanitizer h2bins(1, vector<HNode>());
-
-    if (!pfJoin) {
-        Sanitizer h1bins(1, vector<HNode>());
-        int preKey = t1meta->at(0).values[0];
-        int count = 1;
-        for (int i = 1; i < t1meta->size(); i++) {
-            if (t1meta->at(i).values[0] == preKey) {
-                h1bins[0].push_back({-1, INT_MIN});
-                count++;
-            } else {
-                h1bins[0].push_back({preKey-keyMin, count});
-                count = 1;
-                preKey = t1meta->at(i).values[0];
-            }
-        }
-        h1bins[0].push_back({preKey-keyMin, count});
-        //compaction
-        compactMetaVector<HNode>(&h1bins[0], nullptr, nullptr, [](HNode &e) {
-            return e.second != INT_MIN;
-        }, domainSize);
-    }
-
-    int preKey = t2meta->at(0).values[0];
-    count = 1;
-    for (int i = 1; i < t2meta->size(); i++) {
-        if (t2meta->at(i).values[0] == preKey) {
-            h2bins[0].push_back({-1, INT_MIN});
-            count++;
-        } else {
-            h2bins[0].push_back({preKey-keyMin, count});
-            count = 1;
-            preKey = t2meta->at(i).values[0];
-        }
-    }
-    h2bins[0].push_back({preKey-keyMin, count});
-
-    //compaction
-    compactMetaVector<HNode>(&h2bins[0], nullptr, nullptr, [](HNode &e) {
-        return e.second != INT_MIN;
-    }, domainSize);
-
-    //expansion and obtain the leaf level of tree
-    expand(h1bins[0]);
-    expand(h2bins[0]);
-    for (int i = 0; i < domainSize; i++) {
-        if (h1bins[0][i].first == i) {
-            h1bins[0][i].first = h1bins[0][i].second;
-        } else {
-            h1bins[0][i].first = 0;
-        }
-        if (h2bins[0][i].first == i) {
-            h2bins[0][i].first = h2bins[0][i].second;
-        } else {
-            h2bins[0][i].first = 0;
-        }
-        if (!pfJoin) {
-            int noise1 = TGeom(eps_h, delta_h, height);
-            h1bins[0][i].second = noise1;
-        }
-        int noise2 = TGeom(eps_h, delta_h, height);
-        h2bins[0][i].second = noise2;
-    }
-    rangeSanitizer.push_back(h1bins);
-    rangeSanitizer.push_back(h2bins);
-} */
 
 void HTree::populateRangeSanitizer(int tableID, bool ci) {
     int remainder = 0;
@@ -181,8 +91,6 @@ void HTree::populateRangeSanitizer(int tableID, bool ci) {
         rangeSanitizer[tableID].push_back(TraceMem<HNode>(buckets));
         for (int j = 0; j < buckets; j++) {
             int noise = TGeom(eps_h, delta_h, height, false);
-            //* show the effect of CreateBuckets
-            // int noise = TGeom(eps_h, delta_h, height, true);
             HNode hnode;
             int realSum = 0;
             int weightedNosiySum = 0;
@@ -236,23 +144,6 @@ void HTree::populateRangeSanitizer(int tableID, bool ci) {
             }
         }
     }
-    int leafSum = 0, leafRealData = 0;
-    for (int i = 0; i < rangeSanitizer[tableID][0].size; i++) {
-        auto leaf = rangeSanitizer[tableID][0].read(i);
-        leafRealData += leaf.first;
-        leafSum += leaf.first + leaf.second;
-        // if (leaf.first + leaf.second < 0) {
-        //     printf("possible error %d %d\n", leaf.first, leaf.second);
-        // }
-    }
-    printf("Real %d No createBuckets PDS size %d\n", leafRealData, leafSum);
-    /* float rootSum = 0, rootRealData = 0;
-    printf("root has %d nodes\n", rangeSanitizer[tableID].back().size());
-    for (int i = 0; i < rangeSanitizer[tableID].back().size(); i++) {
-        rootRealData += rangeSanitizer[tableID].back()[i].first;
-        rootSum += rangeSanitizer[tableID].back()[i].first + rangeSanitizer[tableID].back()[i].second;
-    }
-    printf("rootSum %d leafSum %d rootRealData %d leafRealData %d\n", (int)rootSum, (int)leafSum, (int)rootRealData, (int)leafRealData); */
 }
 
 pair<int, int> HTree::BRC(Sanitizer *sanitizer, int from, int to) {
@@ -285,13 +176,10 @@ pair<int, int> HTree::BRC(Sanitizer *sanitizer, int from, int to) {
 		} while (true);
 }
 
+// Uni-DO-joiin
 void HTree::constructBucketsOneTime() {
     int t1Size = 0, noisyTotal0 = 0, t2Size = 0, noisyTotal1 = 0;
     if (!pfjoin) {
-        // auto pr1 = BRC(&rangeSanitizer[0], 0, domainSize-1);
-        // t1Size = pr1.first; noisyTotal0 = pr1.second;
-        // t1Size = rangeSanitizer[0][height-1][0].first;
-        // noisyTotal0 = t1Size + rangeSanitizer[0][height-1][0].second;
         for (int i = 0; i < domainSize; i++) {
             auto pr = rangeSanitizer[0][0].read(i);
             t1Size += pr.first;
@@ -301,10 +189,6 @@ void HTree::constructBucketsOneTime() {
     } else {
         noisyTotal0 = domainSize;
     }
-    // auto pr2 = BRC(&rangeSanitizer[1], 0, domainSize-1);
-    // t2Size = pr2.first; noisyTotal1 = pr2.second;
-    // t2Size = rangeSanitizer[1][height-1][0].first;
-    // noisyTotal1 = t2Size + rangeSanitizer[1][height-1][0].second;
 
     for (int i = 0; i < domainSize; i++) {
         auto pr = rangeSanitizer[1][0].read(i);
@@ -312,24 +196,18 @@ void HTree::constructBucketsOneTime() {
         noisyTotal1 += pr.second;
     }
     noisyTotal1 += t2Size;
-
-    // int U = (height/eps_h * log(2/delta_h)+ height - 1);
-    // int tmpPart = ceil((noisyTotal0+noisyTotal1) / U * height * constant);
     int U = (2 / 0.3 * log(1/delta));
     int tmpPart = ceil((noisyTotal0+noisyTotal1) / U * height * constant);
-    printf("t1Size %d t2Size %d noisyTotal0 %d noisyTotal1 %d tmpPart %d constant %d\n", t1Size, t2Size, noisyTotal0, noisyTotal1, tmpPart, (int)constant);
+    printf("t1Size %d t2Size %d noisyTotal0 %d noisyTotal1 %d tmpPart %d constant %f\n", t1Size, t2Size, noisyTotal0, noisyTotal1, tmpPart, constant);
     int avgPartSize = ceil((noisyTotal0 + noisyTotal1) / (float)tmpPart);
     printf("height %d, avgPartSize %d\n", height, avgPartSize);
-    
-    // Sanitizer* sanitizer = tableID == 0 ? &rangeSanitizer[0] : &rangeSanitizer[1];
+
     vector<pair<int, int>> partitionSizesTmp;
     int start = 0, end;
     int realPartSize1 = 0, noisyPartSize1 = 0, realPartSize2 = 0, noisyPartSize2 = 0;
     int accuReal1 = 0, accuPureNoise1 = 0, accuReal2 = 0, accuPureNoise2 = 0;
     int prevReal1 = -1, prevReal2 = -1;
     for (int i = 0; i < domainSize; i++) {
-        // auto [realPartSize1, noisyPartSize1] = BRC(&rangeSanitizer[0], start, i);
-        // auto [realPartSize2, noisyPartSize2] = BRC(&rangeSanitizer[1], start, i);
         auto pr1 = rangeSanitizer[0][0].read(i);
         auto pr2 = rangeSanitizer[1][0].read(i);
         realPartSize1 += pr1.first;
@@ -357,10 +235,6 @@ void HTree::constructBucketsOneTime() {
             }
             accuReal2 += realPartSize2;
             accuPureNoise2 += noise2;
-            /* if (realPartSize1 > 0 && realPartSize2 > 0) {
-                printf("domainSize %d i %d (%d %d %d %d)\n", domainSize, i, realPartSize1, realPartSize1+noise1, realPartSize2, realPartSize2+noise2);
-                printf("accuReal1 %d accuReal2 %d\n", accuReal1, accuReal2);
-            } */
             boundaries.push_back(i);
             start = i+1;
             realPartSize1 = 0; noisyPartSize1 = 0;
@@ -373,7 +247,6 @@ void HTree::constructBucketsOneTime() {
                 partitionSizes.push_back({realPartSize1, realPartSize1+noise1});
                 int noise2 = TGeom(eps_b, delta_b, 1);
                 partitionSizesTmp.push_back({realPartSize2, realPartSize2+noise2});
-                // printf("domainSize %d i %d (%d %d %d %d)\n", domainSize, i, realPartSize1, realPartSize1+noise1, realPartSize2, realPartSize2+noise2);
                 if (accuReal1 <= prevReal1) {
                     accumulateSizes[0].push_back({-1, accuPureNoise1});
                 } else {
@@ -388,8 +261,6 @@ void HTree::constructBucketsOneTime() {
                 }
                 accuReal1 += realPartSize1; accuPureNoise1 += noise1;
                 accuReal2 += realPartSize2; accuPureNoise2 += noise2;
-                // printf("accuReal1 %d accuPureNoise1 %d\n", accuReal1, accuPureNoise1);
-                // printf("accuReal2 %d accuPureNoise2 %d\n", accuReal2, accuPureNoise2);
             }
         } 
     }
@@ -399,7 +270,6 @@ void HTree::constructBucketsOneTime() {
     partitionSizes.insert(partitionSizes.end(), partitionSizesTmp.begin(), partitionSizesTmp.end());
     int prev = 0;
     int keyStart, keyEnd;
-    // printf("bucketNoisyMax %d\n", bucketNoisyMax);
     for (int i = 0; i < numPart1; i++) {
         keyStart = keyMin + prev; // inclusive
         keyEnd = keyMin + boundaries[i]; //inclusive
@@ -420,14 +290,12 @@ void HTree::constructBucketsOneTime() {
     }
     printf("pds1 size %d\n", accuReal1+accuPureNoise1);
     printf("pds2 size %d\n", accuReal2+accuPureNoise2);
-    // printf("total npart %d %d\n", buckets.size(), partitionSizes.size());
 }
 
+// Ind-DO-join
 void HTree::constructBuckets(int tableID) {
     int t1Size = 0, noisyTotal0 = 0, t2Size = 0, noisyTotal1 = 0;
     if (!pfjoin) {
-        // auto pr1 = BRC(&rangeSanitizer[0], 0, domainSize-1);
-        // t1Size = pr1.first; noisyTotal0 = pr1.second;
         for (int i = 0; i < domainSize; i++) {
             auto pr = rangeSanitizer[0][0].read(i);
             t1Size += pr.first;
@@ -437,8 +305,6 @@ void HTree::constructBuckets(int tableID) {
     } else {
         noisyTotal0 = domainSize;
     }
-    // auto pr2 = BRC(&rangeSanitizer[1], 0, domainSize-1);
-    // t2Size = pr2.first; noisyTotal1 = pr2.second;
     if (rangeSanitizer.size() == 2) {
         for (int i = 0; i < domainSize; i++) {
             auto pr = rangeSanitizer[1][0].read(i);
@@ -448,8 +314,6 @@ void HTree::constructBuckets(int tableID) {
         noisyTotal1 += t2Size;
     }
 
-    // int U = (height/eps_h * log(2/delta_h)+ height - 1);
-    // int tmpPart = ceil((noisyTotal0+noisyTotal1) / U * height * constant);
     int U = (2 / 0.3 * log(1/delta));
     int tmpPart = ceil((noisyTotal0+noisyTotal1) / U * height * constant);
     printf("noisyTotal0 %d noisyTotal1 %d tmpPart %d constant %d\n", noisyTotal0, noisyTotal1, tmpPart, (int)constant);
@@ -461,7 +325,6 @@ void HTree::constructBuckets(int tableID) {
     int realPartSize = 0, noisyPartSize = 0;
     int accuReal = 0, accuPureNoise = 0;
     for (int i = 0; i < domainSize; i++) {
-        // auto [realPartSize, noisyPartSize] = BRC(sanitizer, start, i);
         auto pr = rangeSanitizer[tableID][0].read(i);
         realPartSize += pr.first;
         noisyPartSize += (pr.first+pr.second);
@@ -471,9 +334,7 @@ void HTree::constructBuckets(int tableID) {
             accumulateSizes[tableID].push_back({accuReal, accuPureNoise});
             accuReal += realPartSize;
             accuPureNoise += noise;
-            // printf("accuReal %d accuPureNoise %d\n", accuReal, accuPureNoise);
             boundaries.push_back(i);
-            // start = i+1;
             realPartSize = 0;
             noisyPartSize = 0;
         }   
@@ -485,7 +346,6 @@ void HTree::constructBuckets(int tableID) {
                 accumulateSizes[tableID].push_back({accuReal, accuPureNoise});
                 accuReal += realPartSize;
                 accuPureNoise += noise;
-                // printf("accuReal %d accuPureNoise %d\n", accuReal, accuPureNoise);
             }
         } 
     }
@@ -510,18 +370,11 @@ void HTree::constructBuckets(int tableID) {
         prev = boundaries[i] + 1;
     }
     printf("pds size %d\n", accuReal+accuPureNoise);
-    // printf("total npart %d %d\n", buckets.size(), partitionSizes.size());
 }
 
+// PF-join
 void HTree::constructPBuckets(int tableID, TraceMem<pair<int,tbytes>> *data) {
     t1data = data;
-
-    // t1data = new TraceMem<pair<int,tbytes>>(domainSize);
-    // readDataBlockPair_Wrapper(tableID, tableID, 0, 0, t1data, 0, t1Size, keyMin);
-    // ObliSortingNet<pair<int,tbytes>> net = ObliSortingNet<pair<int,tbytes>>(t1data, [](pair<int,tbytes> &r1, pair<int,tbytes> &r2) {
-    //     return r1.first <= r2.first;
-    // });
-    // net.obliSort(t1Size, true);
     //* not expensive
     if (t1data->size < domainSize) {
         t1data->resize(domainSize);
@@ -585,7 +438,7 @@ void HTree::moveData(int tableID, query_type op, TraceMem<pair<int,tbytes>> *dat
             data = t2data;
         }
     } else {
-        //* one-time
+        //* union
         data->resize(data->size+noiseSum);
     }
     
@@ -614,7 +467,7 @@ void HTree::moveData(int tableID, query_type op, TraceMem<pair<int,tbytes>> *dat
             data->write(i, {noiseArray[i].second.values[0], record}); //use key for sorting
         }
     }
-    //* one-time
+    //* union
     if (uni) {
         accumulateSizes[tableID].resize(rdataSize);
         expand(accumulateSizes[tableID]);
@@ -640,24 +493,13 @@ void HTree::moveData(int tableID, query_type op, TraceMem<pair<int,tbytes>> *dat
     for (int i = start; i < end; i++) {
         auto curBucket = buckets[i];
         curBucket->populateData();
-
-        // uint dsize = curBucket->numData * EDATA_BLOCKSIZE;
-        // char *writeData = (char *)malloc(dsize);
-        // char *iter = writeData;
-        // char *crecord = new char[textSizeVec[tableID]];
-        // char *encryptedRecord = new char[EDATA_BLOCKSIZE];
         for (int j = 0; j < curBucket->numData; j++) {     
             auto record = data->read(binStart+j);
             curBucket->write(j, record.second);
-            // copy(record.second.begin(), record.second.begin()+textSizeVec[tableID], crecord);
-            // encryptRecord(textSizeVec[tableID], crecord, encryptedRecord);
-            // memcpy(iter, encryptedRecord, EDATA_BLOCKSIZE);
-            // iter += EDATA_BLOCKSIZE;
         }
         binStart += curBucket->numData;
         writeDataBlock_Wrapper(tableID, i, 0, curBucket->data, curBucket->numData);
     }
-    printf("done move data\n");
     data->freeSpace();
     delete []dummyRecord;
 }
@@ -666,8 +508,6 @@ void HTree::moveData(int tableID, query_type op, TraceMem<pair<int,tbytes>> *dat
 pair<int, int> HTree::bucketCrossProduct(int writeID, int qs, int qe, bool jattr) {
     // assume all join records fit in enclave
     numRealMatches = 0; 
-    // printf("jDistArray size %d\n", jDistArray.size());
-    // realMatches = 0;
     int i = 0, j = numPart1;
     pair<int, int> keyRange1, keyRange2;
     int xprodsize = 0;
@@ -693,8 +533,6 @@ pair<int, int> HTree::bucketCrossProduct(int writeID, int qs, int qe, bool jattr
             // assume that [qs, qe] is applied on table 2
             j++;
         } else {
-            // printf("join [%d %d] [%d %d]\n", keyRange1.first, keyRange1.second, keyRange2.first, keyRange2.second);
-
             /* if (!jattr && qualifiedCounts.find(j) == qualifiedCounts.end()) {
                 // assume that [qs, qe] is applied on non-join attr of table 2 
                 int count = 0;
@@ -744,11 +582,8 @@ pair<int, int> HTree::bucketCrossProduct(int writeID, int qs, int qe, bool jattr
     printf("bucketNoisyMax %d tmpbucketNoisyMax %d\n", bucketNoisyMax, tmpbucketNoisyMax);
     bucketNoisyMax = tmpbucketNoisyMax;
     joinOutput = new TraceMem<cbytes>(xprodsize);
-    // printf("allocate joinOutput %d\n", joinOutput->size);
     selected_count = new uint32_t[xprodsize+1];
     selected_count[0] = 0;
-    // selected_count_idx = 1;
-    // printf("allocate selected_count %d\n", selected_count_idx);
     i = 0; j = numPart1;
     while (i < numPart1 && j < numPart1+numPart2) {
         keyRange1.first = buckets[i]->keyMin;
@@ -803,7 +638,6 @@ pair<int, int> HTree::pfJoin(int tableID1, int tableID2, int writeID) {
         numRealMatches = sortMergeJoin(&binpair);
         // enclaveCompact(binPairSize-buckets[i]->subDomainSize);
         ORCompact(binPairSize-buckets[i]->subDomainSize);
-        // printf("joinOutput size %d\n", joinOutput->size);
         int counter = 0;
         auto riter = res;
         for (int j = 0; j < binPairSize-buckets[i]->subDomainSize; j++) {
@@ -826,7 +660,6 @@ pair<int, int> HTree::pfJoin(int tableID1, int tableID2, int writeID) {
         }
         outputSize += buckets[i]->numData;
         delete []selected_count;
-        // printf("i %d\n", i);
     }
     binpair.freeSpace();
     free(res);
@@ -845,9 +678,7 @@ void HTree::prepareBinIdxData(vector<pair<number, bytes>> &idxBinStart, vector<p
         bytes id = bytesFromNumber(ptr->id);
         idxBinStart.push_back({binStart, id});
         idxBinEnd.push_back({binEnd, id}); //inclusive
-        // printf("idx %d start %d end %d\n", ptr->id, binStart, binEnd);
     }
-    // printf("boundaries size %d numPart1+numPart2 %d\n", boundaries.size(), numPart1+numPart2);
 }
 
 
@@ -858,7 +689,6 @@ Bucket::Bucket(int id, int tableid, int keyMin, int keyMax, int numData) : id(id
 
 void Bucket::populateData() {
     data = new TraceMem<tbytes>(numData);
-    // printf("populate numdata %d \n", numData);
 }
 
 void Bucket::write(int i, tbytes &record) {

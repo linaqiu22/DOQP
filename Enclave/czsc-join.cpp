@@ -165,7 +165,6 @@ pair<int, int> CZSCJoin::groupSparseKeys() {
             noiseSum1 += e.noise1;
             noiseSum2 += e.noise2;
             crossProductSize += (e.count1+e.noise1) * (e.count2+e.noise2);
-            // printf("dense bin %d %d\n", e.count1+e.noise1, e.count2+e.noise2);
         } else {
             e.bin_id = -1;
         }
@@ -184,7 +183,6 @@ pair<int, int> CZSCJoin::groupSparseKeys() {
         if (noisyCount1 <= 2*U && noisyCount2 <= 2*U) {
             if (sbinCount1+e.count1 > 4*U || sbinCount2+e.count2 > 4*U) {
                 noiseArray1.push_back({noiseSum1, {tableID1, INT_MAX, preKey, ndense + n_sparsebins}});
-                // printf("noiseSum1 %d\n", noiseSum1);
                 noiseSum1 += (4*U - sbinCount1);
                 noiseArray2.push_back({noiseSum2, {tableID2, INT_MAX, preKey, ndense + n_sparsebins}});
                 noiseSum2 += (4*U - sbinCount2);
@@ -205,7 +203,6 @@ pair<int, int> CZSCJoin::groupSparseKeys() {
         }
     }
     noiseArray1.push_back({noiseSum1, {tableID1, INT_MAX, preKey, ndense + n_sparsebins}});
-    // printf("noiseSum1 %d\n", noiseSum1);
     noiseSum1 += (4*U - sbinCount1);
     noiseArray2.push_back({noiseSum2, {tableID2, INT_MAX, preKey, ndense + n_sparsebins}});
     noiseSum2 += (4*U - sbinCount2);
@@ -215,7 +212,6 @@ pair<int, int> CZSCJoin::groupSparseKeys() {
     return {noiseSum1, noiseSum2};
 }
 
-// void CZSCJoin::expandJoinTables(int a, int b) {
 void CZSCJoin::expandJoinTables(int noiseSum1, int noiseSum2) {
     compactMetaVector<pair<int, JoinRecord>>(&noiseArray1, nullptr, nullptr, [](pair<int, JoinRecord> &e){
         return e.first < INT_MAX;
@@ -223,7 +219,6 @@ void CZSCJoin::expandJoinTables(int noiseSum1, int noiseSum2) {
     compactMetaVector<pair<int, JoinRecord>>(&noiseArray2, nullptr, nullptr, [](pair<int, JoinRecord> &e){
         return e.first < INT_MAX;
     }, ndense+n_sparsebins+noisyBins);
-    // printf("compact done noiseArray1 %d noiseArray2 %d\n", noiseArray1.size(), noiseArray2.size());
     //* tmp
     int N = T1.size() + T2.size();
     // noisyBins = 0;
@@ -277,7 +272,6 @@ void CZSCJoin::expandJoinTables(int noiseSum1, int noiseSum2) {
             T1.push_back(dummy.second);
         }
     } else {
-        //TODO clear T1, read data, assign bins, add dummy, iterative compact/sort, might need a structure to store bins/binCount
         vector<JoinRecord>().swap(T1);
         rbin1 = new TraceMem<tbytes>(noiseSum1+t1data_size);
         char *dummyRecord = new char[textSizeVec[tableID1]]; // hardcoded tableID1
@@ -397,7 +391,6 @@ void CZSCJoin::expandTable(int tableID) {
     int mark = INT_MAX;
     uint num_iter = ceil((float)noiseArray.size()/(2*IO_BLOCKSIZE));
     int rid_pos = textSizeVec[tableID] - sizeof(int)*2;
-    // int tmpcount = 0;
     for (uint i = 0; i < num_iter; i++) {
         auto noise_iter = noise;
         auto end = 2*(i+1)*IO_BLOCKSIZE < noiseArray.size() ? 2*(i+1)*IO_BLOCKSIZE : noiseArray.size();
@@ -435,7 +428,6 @@ void CZSCJoin::createBins(int tableID) {
             continue;
         } else {
             int binID = ptr->at(0).bin_id;
-            // printf("binid %d size %d\n", binID, ptr->size());
             move_resize_bin_totable_OCALL(tableID, counter, binID, ptr->size());
             vector<JoinRecord>().swap(*ptr);
             counter++;
@@ -444,7 +436,6 @@ void CZSCJoin::createBins(int tableID) {
 }
 
 void CZSCJoin::binning(int tableID, int start, int end, int readBinID) {
-    // printf("table %d start %d end %d\n", tableID, start, end);
     if (start == end) {
         return;
     }
@@ -461,12 +452,6 @@ void CZSCJoin::binning(int tableID, int start, int end, int readBinID) {
         return e.bin_id <= mid;
     });
     int out1_fill_size = (IO_BLOCKSIZE - (out1->size() % IO_BLOCKSIZE)) % IO_BLOCKSIZE;
-    //TODO:
-    // CompactNet<tbytes> cnet(tWorkSpace[0], tWorkSpace[1]);
-    // cnet.compact(tableID, readBinID, in->size()+out1_fill_size, writeBinID, [&mid, &tableID](vector<int> &e) {
-    //     // int b = textSizeVec[tableID]/sizeof(int)-1;
-    //     return e.back() <= mid;
-    // });
 
     vector<JoinRecord>().swap(*tq[readBinID]);
     tq[readBinID] = nullptr;
@@ -477,9 +462,6 @@ void CZSCJoin::binning(int tableID, int start, int end, int readBinID) {
 }
 
 pair<int, int> CZSCJoin::join(int writeID, bool pfJoin) {
-    // sort(keyBinList.begin(), keyBinList.end(), [](KeyBin &p1, KeyBin &p2){
-    //     return p1.bin_id < p2.bin_id;
-    // });
     printf("start join\n");
     int numRealMatches = 0;
     uint outputSize = 0;
@@ -541,9 +523,6 @@ pair<int, int> CZSCJoin::join(int writeID, bool pfJoin) {
             int pos1 = iter1 * readBlockSize;
             iter1++;
             int nreal1 = -1;
-            // int tmpcount1 = 0;
-            // readDataBlock_OCALL(&readFlag1, tableID1, i, pos1, dblock1, IO_BLOCKSIZE * EDATA_BLOCKSIZE);
-            // iter1++;
             if (!t1_inEnclave) {
                 readDataBlock_OCALL(&readFlag1, tableID1, i, pos1, dblock1, readBlockSize * EDATA_BLOCKSIZE);
                 if (readFlag1 < iter1 * readBlockSize) {
@@ -566,10 +545,6 @@ pair<int, int> CZSCJoin::join(int writeID, bool pfJoin) {
                         tmpInt[k] = record[binid_pos1+k];
                     }
                     vector<int> r1Bin = deconstructNumbers<int>(tmpInt, sizeof(int));
-                    /* for (int k = 0; k < sizeof(int); k++) {
-                        tmpInt[k] = record[binid_pos1-sizeof(int)+k];
-                    }
-                    vector<int> r1ID = deconstructNumbers<int>(tmpInt, sizeof(int)); */
                     if (r1Bin[0] > i) {
                         if (r1Bin[0] == i+1) {
                             nreal1 = j;
@@ -588,14 +563,11 @@ pair<int, int> CZSCJoin::join(int writeID, bool pfJoin) {
                     abs_pos1 += nreal1;
                 }
                 tWorkSpace[0]->resize(nreal1);
-                // printf("r1bin %d nreal1 %d abs_pos %d\n", i, nreal1, abs_pos1-nreal1);
             }
             int readFlag2 = readBlockSize;
             int iter2 = 0;
-            // int tmpcount2 = 0;
             while (iter2 * readBlockSize < readFlag2) {
                 int pos2 = iter2 * readBlockSize;
-                // readDataBlock_OCALL(&readFlag2, tableID2, i, pos2, dblock2, IO_BLOCKSIZE * EDATA_BLOCKSIZE);
                 iter2++;
                 int nreal2 = -1;
                 if (!t2_inEnclave) {
@@ -620,10 +592,6 @@ pair<int, int> CZSCJoin::join(int writeID, bool pfJoin) {
                             tmpInt[k] = record[binid_pos2+k];
                         }
                         vector<int> r2Bin = deconstructNumbers<int>(tmpInt, sizeof(int));
-                        /* for (int k = 0; k < sizeof(int); k++) {
-                            tmpInt[k] = record[binid_pos2-sizeof(int)+k];
-                        }
-                        vector<int> r2ID = deconstructNumbers<int>(tmpInt, sizeof(int)); */
                         if (r2Bin[0] > i) { //* or != i
                             if (r2Bin[0] == i+1) {
                                 nreal2 = j;
@@ -693,48 +661,9 @@ pair<int, int> CZSCJoin::join(int writeID, bool pfJoin) {
     // return {numRealMatches, outputSize};
 }
 
-/* void CZSCJoin::crossProduct(int nreal1, int nreal2) {
-    char *res = (char*)malloc((nreal1*nreal2) * EDATA_BLOCKSIZE);
-    auto iter = res;
-    int t1_rid_pos = textSizeVec[tableID1]/sizeof(int)-2;
-    int t2_rid_pos = textSizeVec[tableID2]/sizeof(int)-2;
-    uint textSize = (t1_rid_pos+t2_rid_pos)*sizeof(int);
-    char *plaintext = new char[textSize];
-    char *encryptedMatch = new char[EDATA_BLOCKSIZE];
-    // int realMatches = 0;
-    for (int i = 0; i < nreal1; i++) {
-        vector<int> r1 = deconstructIntegers(tableID1, workSpace[0][i]);
-        int r1_rid = r1[t1_rid_pos];
-        for (int j = 0; j < nreal2; j++) {
-            vector<int> r2 = deconstructIntegers(tableID2, workSpace[1][j]);
-            int r2_rid = r2[t2_rid_pos];
-            if (r1_rid != INT_MAX && r2_rid != INT_MAX && r1[0] == r2[0]){
-                // match
-                copy(workSpace[0][i].begin(), workSpace[0][i].begin()+t1_rid_pos*sizeof(int), plaintext);
-                copy(workSpace[1][j].begin(), workSpace[1][j].begin()+t2_rid_pos*sizeof(int), plaintext+t1_rid_pos*sizeof(int));
-                realMatches++;
-            } else {
-                // printf("r1 key %d rid %d r2 key %d rid %d\n", r1[0], r1_rid, r2[0], r2_rid);
-                memset(plaintext, '\0', textSize);
-            }
-            encryptRecord(textSize, plaintext, encryptedMatch);
-            memcpy(iter, encryptedMatch, EDATA_BLOCKSIZE);
-            iter += EDATA_BLOCKSIZE;
-        }
-    }
-    printf("realMatches %d\n", realMatches);
-    // write_join_output_OCALL(res, (nreal1*nreal2) * EDATA_BLOCKSIZE);
-} */
-
 int CZSCJoin::checkOutputLen(bool optimized) {
-    // int noisyBins = TGeom(eps, delta, 1);
     int rlen = 0;
     unsigned long len = 0;
-    // for (int iter = 0; iter < ndense+n_sparsekeys+noisyBins; iter++) {
-    //     auto e = keyBinList[iter];
-    //     rlen += (e.count1*e.count2);
-    //     len += (e.count1+e.noise1)*(e.count2+e.noise2);
-    // }
     for (auto &e : keyBinList) {
         rlen += (e.count1*e.count2);
         len += (e.count1+e.noise1)*(e.count2+e.noise2);

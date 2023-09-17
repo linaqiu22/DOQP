@@ -24,15 +24,20 @@ static TraceMem<pair<int,tbytes>>* data[2]; // only in htree
 static vector<metaRecord> metaData_t1, metaData_t2;
 static vector<pair<int, int>> initDomain;
 
+// create a vector of meta records consisting of values of sensitive attributes from serialized `encryptedData`. 
 void extractMeta(int tableID, char *encryptedData, int inSize, char *sensitiveAttr, uint sattrSize);
+// sort input data and create a vector of meta records.
 void extractData(int tableID, int nRecords);
+// create PDS for table `tableID`.
 int createPDS(int tableID);
+// PrivTree
 int initJoinPDS(int pfJoin, int selectJoin);
-int initHTree(int pfJoin, float constant, int ind);
-// void tmpAugmentInput(int structureID, int tableID1, int tableID2);
 void createJoinPDS(int structureID, int tableID1, int tableID2);
 void createSelectJoinPDS(int structureID, int tableID1, int tableID2);
+// HTree
+int initHTree(int pfJoin, float constant, int ind);
 void createJoinBuckets(int structureID, int tableID1, int tableID2, int pfJoin);
+// CZSC21
 void createCZSC(int tableID1, char *eData_t1, int inSize_t1, int join_idx1, int tableID2, char *eData_t2, int inSize_t2, int join_idx2, int pfJoin);
 
 int buildIndex(int structureID, int idx_dim, const char*str, join_type jtype);

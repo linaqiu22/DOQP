@@ -13,7 +13,6 @@ void loadTable(int tableID, shared_ptr<AbsStorage> storage, string source, vecto
     int n_data, n_attr;
     in_file >> n_data >> n_attr;
     float attrVal;
-    // int textSize = (n_attr+1) * sizeof(int);
     int textSize = textSizeVec[tableID];
     number cipherSize = computeCiphertextSize(textSize);
     uchar plaintext[cipherSize];
@@ -25,7 +24,6 @@ void loadTable(int tableID, shared_ptr<AbsStorage> storage, string source, vecto
         vector<int> in_record;
         for (int j = 0; j < n_attr; j++) {
             in_file >> attrVal;
-            // cout << attrVal << " ";
             int intAttrVal = (int)attrVal;
             in_record.push_back(intAttrVal);
             if (storage !=  nullptr) {
@@ -33,7 +31,6 @@ void loadTable(int tableID, shared_ptr<AbsStorage> storage, string source, vecto
                 iter += sizeof(int);
             }
         }
-        // cout << endl;
         test_data.push_back(in_record);
         if (storage != nullptr) {
             memcpy(iter, &i, sizeof(int));
@@ -99,7 +96,6 @@ void loadCustomer(int tableID, shared_ptr<AbsStorage> storage, string source) {
         if (storage != nullptr) {
             memcpy(iter, &C_NATIONKEY, sizeof(int)); iter += sizeof(int);
             copy(values.begin(), values.end(), iter); iter += (textSizeVec[tableID]-3*sizeof(int));
-            // memcpy(iter, &values, values.size()); iter += (textSizeVec[tableID]-2*sizeof(int));
             memcpy(iter, &i, sizeof(int));
             //* cipherSize to textSize
             int ciphertext_len = aes_gcm_128_encrypt(plaintext, cipherSize, nullptr, 0,
@@ -146,8 +142,6 @@ void loadSupplier(int tableID, shared_ptr<AbsStorage> storage, string source) {
                     int S_SUPPKEY = stoi(element);
                     uchar tmp[sizeof(int)];
                     memcpy(tmp, &S_SUPPKEY, sizeof(int));
-                    // copy(tmp, tmp+sizeof(int), values.begin());
-                    // bytes tmp((uchar *)S_SUPPKEY, (uchar *)S_SUPPKEY + sizeof(int));
                     values.insert(values.end(), tmp, tmp+sizeof(int));
                 } else {
                     float S_ACCTBAL = stof(element);
@@ -163,7 +157,6 @@ void loadSupplier(int tableID, shared_ptr<AbsStorage> storage, string source) {
         if (storage != nullptr) {
             memcpy(iter, &S_NATIONKEY, sizeof(int)); iter += sizeof(int);
             copy(values.begin(), values.end(), iter); iter += (textSizeVec[tableID]-3*sizeof(int));
-            // memcpy(iter, &values, values.size()); iter += (textSizeVec[tableID]-2*sizeof(int));
             memcpy(iter, &i, sizeof(int));
             //* cipherSize to textSize
             int ciphertext_len = aes_gcm_128_encrypt(plaintext, cipherSize, nullptr, 0,

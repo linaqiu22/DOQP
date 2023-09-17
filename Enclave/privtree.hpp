@@ -73,10 +73,8 @@ class PrivTree {
     pair<int, int> selectJoin(vector<TreeNode*> &selectedBins, int tableID1, int tableID2, int writeID, int qs, int qe);
     pair<int,int> join(int tableID1, int tableID2, int writeID, int qs, int qe);
     pair<int, int> pfJoin(int tableID1, int tableID2, int writeID);
-    // void crossProduct(int tableID1, int tableID2, int nreal1, int nreal2);
     int getNoisySize();
     int getBinPairKKSSize();
     int checkJoinOutput(int join_idx1, int join_idx2);
     void checkSelction(int start, int end, int query_dim, vector<int> *selectedBins);
-    // void cleanHelper();
 };

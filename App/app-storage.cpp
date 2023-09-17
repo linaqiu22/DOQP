@@ -3,7 +3,6 @@
 InMemoryStorage::InMemoryStorage(number blockSize) :
     AbsStorage(blockSize)
 {
-    // auto emptyBlock = bytesFromNumber(empty());
     number material[1] = {empty()};
     auto emptyBlock = bytes((uchar *)material, (uchar *)material + sizeof(number));
     emptyBlock.resize(blockSize);
@@ -45,15 +44,6 @@ void InMemoryStorage::set(number location, const bytes &data)
 
     memory[location] = data;
 }
-
-/* void InMemoryStorage::reset() {
-    memory.clear();
-    locationCounter = META + 1;
-    number material[1] = {empty()};
-    auto emptyBlock = bytes((uchar *)material, (uchar *)material + sizeof(number));
-    emptyBlock.resize(blockSize);
-    set(meta(), emptyBlock);
-} */
 
 void InMemoryStorage::resize(uint size) {
     number location = META + 1 + size;
@@ -130,10 +120,6 @@ FileSystemStorage::~FileSystemStorage()
 {
     file.close();
 }
-
-/* void FileSystemStorage::serializeData(char* sdata, bool exceptMeta) {
-
-} */
 
 void FileSystemStorage::get(number location, bytes &response)
 {
